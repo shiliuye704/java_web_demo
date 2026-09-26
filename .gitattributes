@@ -1,0 +1,18 @@
+# 换行符策略：仓库内一律存 LF，工作区换行由各机器的 core.autocrlf / core.eol 决定。
+# 目的：无论在哪台机器、用什么 core.autocrlf 设置提交，写入仓库的 blob 都是 LF，
+# 不会再出现"同一份初始代码在两边生成不同哈希的根提交"这种无关历史分歧。
+* text=auto
+
+# 明确声明为二进制，禁止做任何换行符转换或文本 diff。
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.jar   binary
+*.zip   binary
+*.gz    binary
+*.pdf   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
