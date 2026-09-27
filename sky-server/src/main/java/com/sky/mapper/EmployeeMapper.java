@@ -26,4 +26,7 @@ public interface EmployeeMapper {
     List<Employee> getByName(String name);
 
     void update(Employee employee);
+
+    @Select("select * from employee where id=#{id}")
+    Employee findById(Integer id);
 }

@@ -21,8 +21,9 @@
             <if test="password!=null and password !=''">username=#{password},</if>
             <if test="phone!=null and phone !=''">phone=#{phone},</if>
             <if test="idNumber!=null and idNumber !=''">id_number=#{idNumber},</if>
+            <if test="sex!=null and sex!=''">sex=#{sex},</if>
             <if test="status!=null">`status`=#{status},</if>
-            <if test="createUser!=null">create_user=#{createUser},</if>
+            <if test="updateUser!=null">update_user=#{updateUser},</if>
             update_time = now()
         </set>
         where id = #{id}
