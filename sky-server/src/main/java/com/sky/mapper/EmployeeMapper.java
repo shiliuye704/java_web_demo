@@ -24,4 +24,6 @@ public interface EmployeeMapper {
     void insert(Employee employee);
 
     List<Employee> getByName(String name);
+
+    void update(Employee employee);
 }

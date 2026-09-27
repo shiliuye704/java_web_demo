@@ -94,4 +94,11 @@ public class EmployeeController {
         return Result.success(employeeService.page(employeePageQueryDTO));
     }
 
+    @PostMapping("/status/{status}")
+    @ApiOperation("员工账号状态更改")
+    public Result startOrStop (@PathVariable Integer status, Long id) {
+        log.info("更改员工编号为；{} 的员工状态",id);
+        employeeService.startOrStop(status,id);
+        return Result.success();
+    }
 }
