@@ -24,7 +24,7 @@
             <if test="sex!=null and sex!=''">sex=#{sex},</if>
             <if test="status!=null">`status`=#{status},</if>
             <if test="updateUser!=null">update_user=#{updateUser},</if>
-            update_time = now()
+            <if test="updateTime!=null">update_Time=#{updateTime},</if>
         </set>
         where id = #{id}
     </update>    
