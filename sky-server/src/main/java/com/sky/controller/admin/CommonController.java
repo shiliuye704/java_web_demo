@@ -23,7 +23,7 @@ import java.util.UUID;
 public class CommonController {
 
     @Autowired
-    public AliOssUtil aliOssUtil;
+    private AliOssUtil aliOssUtil;
 
     @PostMapping("/upload")
     @ApiOperation("文件上传接口")
