@@ -6,3 +6,11 @@ sky:
     database: sky_take_out
     username: root
     password: '114514'
+
+  alioss:
+    # 密钥不写入仓库，请在环境变量或 IDEA 运行配置中提供：
+    #   com.sky.endpoint / com.sky.access-key-id / com.sky.access-key-secret / com.sky.bucket-name
+    endpoint: ${com.sky.endpoint}
+    access-key-id: ${com.sky.access-key-id}
+    access-key-secret: ${com.sky.access-key-secret}
+    bucket-name: ${com.sky.bucket-name}
