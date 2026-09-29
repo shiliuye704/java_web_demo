@@ -10,7 +10,9 @@ sky:
   alioss:
     # 密钥不写入仓库，请在环境变量或 IDEA 运行配置中提供：
     #   com.sky.endpoint / com.sky.access-key-id / com.sky.access-key-secret / com.sky.bucket-name
-    endpoint:
-    access-key-id:
-    access-key-secret:
-    bucket-name:
+
+
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
