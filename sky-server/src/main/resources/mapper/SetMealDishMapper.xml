@@ -26,4 +26,12 @@
             #{sId}
         </foreach>
     </delete>
+
+    <select id="getDishItemsById" resultType="com.sky.vo.DishItemVO">
+        select sd.name AS name,copies,d.image AS image,description
+        from setmeal_dish sd
+        left join dish d
+        ON sd.dish_id=d.id
+        where sd.setmeal_id=#{id}
+    </select>
 </mapper>
