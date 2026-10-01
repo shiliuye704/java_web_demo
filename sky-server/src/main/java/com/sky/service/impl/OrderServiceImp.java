@@ -86,6 +86,7 @@ public class OrderServiceImp implements OrderService {
 
         //构建返回的vo
         OrderSubmitVO vo = OrderSubmitVO.builder()
+                .id(orders.getId())
                 .orderNumber(orders.getNumber())
                 .orderTime(orders.getOrderTime())
                 .orderAmount(orders.getAmount())
