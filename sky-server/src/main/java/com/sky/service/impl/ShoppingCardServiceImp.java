@@ -94,9 +94,6 @@ public class ShoppingCardServiceImp implements ShoppingCardService {
 
     @Override
     public void clean() {
-        ShoppingCart shoppingCart = ShoppingCart.builder()
-                .userId(BaseContext.getCurrentId())
-                .build();
-        shoppingCardMapper.delete(shoppingCart);
+        shoppingCardMapper.deleteByUserId(BaseContext.getCurrentId());
     }
 }
