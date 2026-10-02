@@ -7,8 +7,8 @@ import com.sky.entity.Setmeal;
 import com.sky.entity.ShoppingCart;
 import com.sky.mapper.DishMapper;
 import com.sky.mapper.SetmealMapper;
-import com.sky.mapper.ShoppingCardMapper;
-import com.sky.service.ShoppingCardService;
+import com.sky.mapper.ShoppingCartMapper;
+import com.sky.service.ShoppingCartService;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,16 +17,16 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-public class ShoppingCardServiceImp implements ShoppingCardService {
+public class ShoppingCartServiceImp implements ShoppingCartService {
 
     @Autowired
-    private ShoppingCardMapper shoppingCardMapper;
+    private ShoppingCartMapper shoppingCartMapper;
     @Autowired
     private DishMapper dishMapper;
     @Autowired
     private SetmealMapper setmealMapper;
     @Autowired
-    private ShoppingCardService shoppingCardService;
+    private ShoppingCartService shoppingCartService;
 
 
     @Override
@@ -35,12 +35,12 @@ public class ShoppingCardServiceImp implements ShoppingCardService {
         BeanUtils.copyProperties(shoppingCartDTO,shoppingCart);
         shoppingCart.setUserId(BaseContext.getCurrentId());
 
-        List<ShoppingCart> list = shoppingCardMapper.list(shoppingCart);
+        List<ShoppingCart> list = shoppingCartMapper.list(shoppingCart);
 
         if(list!=null && !list.isEmpty()) {
             ShoppingCart cart = list.get(0);
             cart.setNumber(cart.getNumber()+1);
-            shoppingCardMapper.updateNumberById(cart);
+            shoppingCartMapper.updateNumberById(cart);
         } else {
             Long dishId = shoppingCart.getDishId();
 
@@ -62,7 +62,7 @@ public class ShoppingCardServiceImp implements ShoppingCardService {
                 shoppingCart.setNumber(1);
                 shoppingCart.setCreateTime(LocalDateTime.now());
             }
-            shoppingCardMapper.insert(shoppingCart);
+            shoppingCartMapper.insert(shoppingCart);
         }
     }
 
@@ -71,7 +71,7 @@ public class ShoppingCardServiceImp implements ShoppingCardService {
         ShoppingCart shoppingCart = ShoppingCart.builder()
                 .userId(BaseContext.getCurrentId())
                 .build();
-        List<ShoppingCart> list = shoppingCardMapper.list(shoppingCart);
+        List<ShoppingCart> list = shoppingCartMapper.list(shoppingCart);
         return list;
     }
 
@@ -81,19 +81,19 @@ public class ShoppingCardServiceImp implements ShoppingCardService {
         BeanUtils.copyProperties(shoppingCartDTO,shoppingCart);
         shoppingCart.setUserId(BaseContext.getCurrentId());
 
-        List<ShoppingCart> list = shoppingCardMapper.list(shoppingCart);
+        List<ShoppingCart> list = shoppingCartMapper.list(shoppingCart);
 
         ShoppingCart cart = list.get(0);
         if(cart.getNumber()>1) {
             cart.setNumber(cart.getNumber()-1);
-            shoppingCardMapper.updateNumberById(cart);
+            shoppingCartMapper.updateNumberById(cart);
         } else {
-            shoppingCardMapper.delete(cart);
+            shoppingCartMapper.delete(cart);
         }
     }
 
     @Override
     public void clean() {
-        shoppingCardMapper.deleteByUserId(BaseContext.getCurrentId());
+        shoppingCartMapper.deleteByUserId(BaseContext.getCurrentId());
     }
 }
