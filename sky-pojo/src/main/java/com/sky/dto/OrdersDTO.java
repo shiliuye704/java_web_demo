@@ -1,6 +1,7 @@
 package com.sky.dto;
 
 import com.sky.entity.OrderDetail;
+import lombok.Builder;
 import lombok.Data;
 import java.io.Serializable;
 import java.math.BigDecimal;

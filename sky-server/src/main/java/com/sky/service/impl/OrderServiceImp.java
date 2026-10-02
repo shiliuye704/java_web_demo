@@ -1,8 +1,11 @@
 package com.sky.service.impl;
 
-import com.alibaba.fastjson.JSONObject;
+
+import com.github.pagehelper.Page;
+import com.github.pagehelper.PageHelper;
 import com.sky.constant.MessageConstant;
 import com.sky.context.BaseContext;
+import com.sky.dto.OrdersPageQueryDTO;
 import com.sky.dto.OrdersPaymentDTO;
 import com.sky.dto.OrdersSubmitDTO;
 import com.sky.entity.*;
@@ -10,10 +13,12 @@ import com.sky.exception.AddressBookBusinessException;
 import com.sky.exception.OrderBusinessException;
 import com.sky.exception.ShoppingCartBusinessException;
 import com.sky.mapper.*;
+import com.sky.result.PageResult;
 import com.sky.service.OrderService;
 import com.sky.utils.WeChatPayUtil;
 import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderSubmitVO;
+import com.sky.vo.OrderVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +29,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -152,5 +158,94 @@ public class OrderServiceImp implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+    }
+
+    @Override
+    public PageResult historyOrders(Integer page, Integer pageSize, Integer status) {
+        PageHelper.startPage(page,pageSize);
+        OrdersPageQueryDTO ordersPageQueryDTO = OrdersPageQueryDTO.builder()
+                .userId(BaseContext.getCurrentId())
+                .status(status)
+                .build();
+        Page<Orders> ordersPage = orderMapper.getWithConditions(ordersPageQueryDTO);
+
+        List<OrderVO> orderVOList = new ArrayList<>();
+
+        for (Orders orders : ordersPage) {
+            List<OrderDetail> orderDetails = orderDetailMapper.getByOrderId(orders.getId());
+            OrderVO orderVO = new OrderVO();
+            BeanUtils.copyProperties(orders,orderVO);
+            orderVO.setOrderDetailList(orderDetails);
+            orderVOList.add(orderVO);
+        }
+        return new PageResult(ordersPage.getTotal(),orderVOList);
+    }
+
+    @Override
+    public OrderVO getOrderWithDetail(Integer id) {
+        Orders order=orderMapper.getById(id);
+        List<OrderDetail> orderDetails = orderDetailMapper.getByOrderId(order.getId());
+
+        OrderVO orderVO = new OrderVO();
+        BeanUtils.copyProperties(order,orderVO);
+        orderVO.setOrderDetailList(orderDetails);
+        return orderVO;
+    }
+
+    @Override
+    public void cancelById(Integer id) {
+        Orders orders = orderMapper.getById(id);
+
+        if(orders == null) {
+            throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
+        }
+
+        if (orders.getStatus() > 2) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        Orders newOrders = new Orders();
+        newOrders.setId(orders.getId());
+        newOrders.setStatus(Orders.CANCELLED);
+
+        if (orders.getStatus().equals(Orders.TO_BE_CONFIRMED)) {
+
+            //测试使用
+            newOrders.setPayStatus(Orders.REFUND);
+
+            //实际场景使用
+//            try {
+//                weChatPayUtil.refund(
+//                        orders.getNumber(), //商户订单号
+//                        orders.getNumber(), //商户退款单号
+//                        new BigDecimal("0.01"),//退款金额，单位 元
+//                        new BigDecimal("0.01"));//原订单金额
+//                newOrders.setPayStatus(Orders.REFUND);
+//            } catch (Exception e) {
+//                throw new OrderBusinessException(MessageConstant.UNKNOWN_ERROR);
+//            }
+        }
+
+        newOrders.setCancelReason("用户取消");
+        newOrders.setCancelTime(LocalDateTime.now());
+
+        orderMapper.update(newOrders);
+    }
+
+    @Override
+    public void repetition(Integer id) {
+        List<OrderDetail> orderDetails = orderDetailMapper.getByOrderId(Long.valueOf(id));
+
+        List<ShoppingCart> list = orderDetails.stream().map(orderDetail -> {
+            ShoppingCart cart = new ShoppingCart();
+
+            BeanUtils.copyProperties(orderDetail, cart, "id");
+            cart.setUserId(BaseContext.getCurrentId());
+            cart.setCreateTime(LocalDateTime.now());
+
+            return cart;
+        }).collect(Collectors.toList());
+
+        shoppingCartMapper.insertBatch(list);
     }
 }
