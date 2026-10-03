@@ -1,6 +1,9 @@
 package com.sky.service.impl;
 
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.sky.constant.MessageConstant;
@@ -13,6 +16,7 @@ import com.sky.exception.ShoppingCartBusinessException;
 import com.sky.mapper.*;
 import com.sky.result.PageResult;
 import com.sky.service.OrderService;
+import com.sky.utils.HttpClientUtil;
 import com.sky.utils.WeChatPayUtil;
 import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderStatisticsVO;
@@ -21,18 +25,22 @@ import com.sky.vo.OrderVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class OrderServiceImp implements OrderService {
+
+    @Value("${sky.shop.address}")
+    private String shopAddress;
+    @Value("${sky.baidu.ak}")
+    private String ak;
 
     @Autowired
     private OrderMapper orderMapper;
@@ -46,6 +54,7 @@ public class OrderServiceImp implements OrderService {
     private AddressBookMapper addressBookMapper;
     @Autowired
     private WeChatPayUtil weChatPayUtil;
+
     @Override
     @Transactional
     public OrderSubmitVO submitOrders(OrdersSubmitDTO ordersSubmitDTO) {
@@ -54,6 +63,9 @@ public class OrderServiceImp implements OrderService {
         if(addressBook==null) {
             throw new AddressBookBusinessException(MessageConstant.ADDRESS_BOOK_IS_NULL);
         }
+
+        //判断是否超出配送范围
+        checkOutOfRange(addressBook.getCityName()+addressBook.getDistrictName()+addressBook.getDetail());
 
         //判断购物车是否真的存在
         ShoppingCart shoppingCart = ShoppingCart.builder()
@@ -402,5 +414,82 @@ public class OrderServiceImp implements OrderService {
                 .build();
 
         orderMapper.update(order);
+    }
+
+
+    /**
+     * 检查客户的收货地址是否超出配送范围
+     * @param address
+     */
+    private void checkOutOfRange(String address) {
+        //获取店铺的经纬度
+        String shopLngLat = getLngLat(shopAddress);
+
+        //获取收获地址的经纬度
+        String userLngLat = getLngLat(address);
+
+        //获取商家和收货地址的距离
+        Map<String,String> map = new HashMap<>();
+        map.put("ak",ak);
+        //注意：驾车路线规划接口要求坐标格式为“纬度,经度”(lat,lng)，与地理编码返回的“经度,纬度”(lng,lat)相反
+        map.put("origin",toLatLng(shopLngLat));
+        map.put("destination",toLatLng(userLngLat));
+        map.put("steps_info","0");
+
+        //向接口发送请求
+        String resultString = HttpClientUtil.doGet("https://api.map.baidu.com/directionlite/v1/driving", map);
+        JSONObject jsonObject = JSON.parseObject(resultString);
+
+        //判断请求是否成功
+        if(!jsonObject.getString("status").equals("0")) {
+            log.error("调用百度驾车路线规划接口失败，status={}, message={}", jsonObject.getString("status"), jsonObject.getString("message"));
+            throw new OrderBusinessException("店铺地址解析失败");
+        }
+
+        //解析返回结果
+        JSONObject result = jsonObject.getJSONObject("result");
+        JSONArray routes = (JSONArray) result.get("routes");
+        Integer distance = (Integer) ((JSONObject) routes.get(0)).get("distance");
+
+        if (distance>5000) {
+            throw new OrderBusinessException("超出配送范围");
+        }
+    }
+
+
+    //获取地址的经纬度
+    private String getLngLat(String address) {
+
+        //构造请求体
+        Map<String, String> map = new HashMap<>();
+        map.put("address",address);
+        map.put("ak",ak);
+        map.put("output","json");
+
+        //向百度提供的接口发送请求
+        String adressString = HttpClientUtil.doGet("https://api.map.baidu.com/geocoding/v3", map);
+
+        //将返回值转换为JSON类型
+        JSONObject jsonObject = JSON.parseObject(adressString);
+
+        //判断请求是否成功
+        if(!jsonObject.getString("status").equals("0")) {
+            throw new OrderBusinessException("店铺地址解析失败");
+        }
+
+        //解析数据
+        JSONObject shopLocation = jsonObject.getJSONObject("result").getJSONObject("location");
+        String lng = shopLocation.getString("lng");
+        String lat = shopLocation.getString("lat");
+
+        String LngLat = lng + "," + lat;
+
+        return LngLat;
+    }
+
+    //将“经度,纬度”转换为百度驾车路线规划接口要求的“纬度,经度”
+    private String toLatLng(String lngLat) {
+        String[] parts = lngLat.split(",");
+        return parts[1] + "," + parts[0];
     }
 }
