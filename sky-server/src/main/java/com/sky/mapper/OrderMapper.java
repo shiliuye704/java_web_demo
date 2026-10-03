@@ -4,6 +4,7 @@ import com.github.pagehelper.Page;
 import com.sky.dto.OrdersDTO;
 import com.sky.dto.OrdersPageQueryDTO;
 import com.sky.entity.Orders;
+import com.sky.vo.OrderStatisticsVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
@@ -29,4 +30,7 @@ public interface OrderMapper {
 
     @Select("select * from orders where id=#{id}")
     Orders getById(Integer id);
+
+    @Select("select count(*) from orders where status = #{status}")
+    Integer countByStatus(Integer status);
 }

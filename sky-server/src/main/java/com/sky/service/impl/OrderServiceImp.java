@@ -5,9 +5,7 @@ import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.sky.constant.MessageConstant;
 import com.sky.context.BaseContext;
-import com.sky.dto.OrdersPageQueryDTO;
-import com.sky.dto.OrdersPaymentDTO;
-import com.sky.dto.OrdersSubmitDTO;
+import com.sky.dto.*;
 import com.sky.entity.*;
 import com.sky.exception.AddressBookBusinessException;
 import com.sky.exception.OrderBusinessException;
@@ -17,6 +15,7 @@ import com.sky.result.PageResult;
 import com.sky.service.OrderService;
 import com.sky.utils.WeChatPayUtil;
 import com.sky.vo.OrderPaymentVO;
+import com.sky.vo.OrderStatisticsVO;
 import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
 import lombok.extern.slf4j.Slf4j;
@@ -247,5 +246,161 @@ public class OrderServiceImp implements OrderService {
         }).collect(Collectors.toList());
 
         shoppingCartMapper.insertBatch(list);
+    }
+
+    @Override
+    public PageResult conditionSearch(OrdersPageQueryDTO ordersPageQueryDTO) {
+        PageHelper.startPage(ordersPageQueryDTO.getPage(),ordersPageQueryDTO.getPageSize());
+        Page<Orders> orders = orderMapper.getWithConditions(ordersPageQueryDTO);
+
+        List<OrderVO> orderVOList = new ArrayList<>();
+
+        //判断是否查到了信息
+        if(orders!=null && !orders.isEmpty()){
+            for(Orders order : orders) {
+                OrderVO orderVO = new OrderVO();
+                BeanUtils.copyProperties(order,orderVO);
+
+                //拿到订单的详细菜品信息
+                List<OrderDetail> orderDetails = orderDetailMapper.getByOrderId(order.getId());
+
+                //将所有菜品转成字符串
+                List<String> dishes = orderDetails.stream().map(orderDetail -> {
+                    String dish = orderDetail.getName() + "*" + orderDetail.getNumber() + ";";
+                    return dish;
+                }).collect(Collectors.toList());
+
+                //拼接成字符串
+                String dishesString = String.join("", dishes);
+
+                //将菜品加入VO
+                orderVO.setOrderDishes(dishesString);
+
+                orderVOList.add(orderVO);
+            }
+        }
+
+        return new PageResult(orders.getTotal(),orderVOList);
+    }
+
+    @Override
+    public OrderStatisticsVO statistics() {
+        OrderStatisticsVO orderStatisticsVO = new OrderStatisticsVO();
+        orderStatisticsVO.setToBeConfirmed(orderMapper.countByStatus(Orders.TO_BE_CONFIRMED));
+        orderStatisticsVO.setConfirmed(orderMapper.countByStatus(Orders.CONFIRMED));
+        orderStatisticsVO.setDeliveryInProgress(orderMapper.countByStatus(Orders.DELIVERY_IN_PROGRESS));
+
+        return orderStatisticsVO;
+    }
+
+    @Override
+    public void confirm(OrdersConfirmDTO ordersConfirmDTO) {
+        Orders orders = Orders.builder()
+                .id(ordersConfirmDTO.getId())
+                .status(Orders.CONFIRMED)
+                .build();
+
+        orderMapper.update(orders);
+    }
+
+    @Override
+    public void rejection(OrdersRejectionDTO ordersRejectionDTO) {
+        Orders order = orderMapper.getById(Math.toIntExact(ordersRejectionDTO.getId()));
+
+        if (order==null || !order.getStatus().equals(Orders.TO_BE_CONFIRMED)) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        Orders orders = Orders.builder()
+                .id(ordersRejectionDTO.getId())
+                .status(Orders.CANCELLED)
+                .rejectionReason(ordersRejectionDTO.getRejectionReason())
+                .cancelTime(LocalDateTime.now())
+                .build();
+
+        if(Orders.PAID.equals(order.getPayStatus())) {
+            try {
+
+                //实际支付时使用
+//              weChatPayUtil.refund(
+//                        order.getNumber(),
+//                        order.getNumber(),
+//                        new BigDecimal("0.01"),
+//                        new BigDecimal("0.01"));
+
+                orders.setPayStatus(Orders.REFUND);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        orderMapper.update(orders);
+    }
+
+    @Override
+    public void delivery(Integer id) {
+        Orders orders = orderMapper.getById(id);
+
+        if(orders==null || !orders.getStatus().equals(Orders.CONFIRMED) ) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        Orders order = Orders.builder()
+                .id(Long.valueOf(id))
+                .status(Orders.DELIVERY_IN_PROGRESS)
+                .build();
+
+        orderMapper.update(order);
+    }
+
+    @Override
+    public void adminCancel(OrdersCancelDTO ordersCancelDTO) {
+        Orders orders = orderMapper.getById(Math.toIntExact(ordersCancelDTO.getId()));
+
+        if(orders==null || orders.getStatus().equals(Orders.COMPLETED)) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        Orders order = Orders.builder()
+                .id(ordersCancelDTO.getId())
+                .status(Orders.CANCELLED)
+                .cancelReason(ordersCancelDTO.getCancelReason())
+                .cancelTime(LocalDateTime.now())
+                .build();
+
+        if(orders.getPayStatus().equals(Orders.PAID)) {
+            try {
+
+                //实际支付使用
+//                weChatPayUtil.refund(
+//                        orders.getNumber(),
+//                        orders.getNumber(),
+//                        new BigDecimal("0.01"),
+//                        new BigDecimal("0.01"));
+
+                order.setPayStatus(Orders.REFUND);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        orderMapper.update(order);
+    }
+
+    @Override
+    public void complete(Integer id) {
+        Orders orders = orderMapper.getById(id);
+
+        if (orders==null || !orders.getStatus().equals(Orders.DELIVERY_IN_PROGRESS)) {
+            throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
+        }
+
+        Orders order = Orders.builder()
+                .id(Long.valueOf(id))
+                .status(Orders.COMPLETED)
+                .deliveryTime(LocalDateTime.now())
+                .build();
+
+        orderMapper.update(order);
     }
 }
